@@ -1,0 +1,6 @@
+[[Project name is Guardian Eye]]
+[[Description]]
+This project aims to help city crime investigations by using machine vision and AI to analyse CCTV footages to track a person across the entire city. The key part is that the average CCTV footage quality isn't that great and optimizations to be made to process a humongus video footage for each case.
+[[prompt]]
+i'm in charge of making backend and frontend for this application. The person detection and tracking part is done into a micro service by another team.
+help figure out a proper flow of the application, so that i can start segrigating into different screens and figure out all the functionalities needed.
