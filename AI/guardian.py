@@ -1,260 +1,249 @@
-from ultralytics import YOLO
-import torchreid
-from torchreid.utils import FeatureExtractor
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 import cv2
 import torch
 import numpy as np
+import insightface
+from ultralytics import YOLO
+from torchreid.utils import FeatureExtractor
 from scipy.spatial.distance import cosine
-from facenet_pytorch import InceptionResnetV1  # Face recognition model
-import os
-import urllib.request
-img=r"C:\Users\dhili\Desktop\WhatsApp Image 2025-03-05 at 15.48.54_b00c0d5c.jpg"
-src=r"C:\Users\dhili\Desktop\WhatsApp Video 2025-03-05 at 23.17.22_884ddc77.mp4"
-
-# Paths for face detection model files
-models_dir = os.path.join(os.path.dirname(os.path.abspath(_file_)), "models")
-os.makedirs(models_dir, exist_ok=True)
-
-# Model file URLs
-prototxt_url = "https://github.com/opencv/opencv/raw/master/samples/dnn/face_detector/deploy.prototxt"
-caffemodel_url = "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel"
-
-# Define file paths
-prototxt_path = os.path.join(models_dir, "deploy.prototxt")
-caffemodel_path = os.path.join(models_dir, "res10_300x300_ssd_iter_140000.caffemodel")
-
-# Download files if they don't exist
-def download_file(url, dest_path):
-    if not os.path.exists(dest_path):
-        print(f"Downloading {os.path.basename(dest_path)}...")
-        urllib.request.urlretrieve(url, dest_path)
-        print(f"Downloaded {os.path.basename(dest_path)}")
-    else:
-        print(f"{os.path.basename(dest_path)} already exists.")
-
-# Download model files
-download_file(prototxt_url, prototxt_path)
-download_file(caffemodel_url, caffemodel_path)
-
-
-# Initialize models
-yolo_model = YOLO("yolo11x.pt")
-face_extractor = InceptionResnetV1(pretrained='vggface2').eval()  # Face feature extractor
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-face_extractor = face_extractor.to(device)
-
-# Face detection model (OpenCV DNN)
-# Update the face detector initialization to use the file paths
-face_net = cv2.dnn.readNetFromCaffe(
-    prototxt_path,
-    caffemodel_path
-)
-
+import time
+from collections import deque
 
 # Configuration
-REID_IMAGE_SIZE = (256, 128)
-FACE_IMAGE_SIZE = (160, 160)
-MIN_FACE_SIZE = 50
-MIN_PERSON_HEIGHT = 100
-FACE_CONFIDENCE = 0.9
-FACE_SIM_WEIGHT = 0.7  # Weight for face similarity in combined score
+MODELS_DIR = "models"
+os.makedirs(MODELS_DIR, exist_ok=True)
 
-# Initialize ReID extractor
-reid_extractor = FeatureExtractor(
-    model_name='osnet_x1_0',
-    device=device
-)
+# Detection thresholds
+FACE_THRESHOLD = 0.65
+REID_THRESHOLD = 0.50
+MIN_HEIGHT = 1
+TRACKING_BUFFER = 100
 
-def detect_faces(image):
-    """Detect faces using OpenCV's DNN face detector"""
-    h, w = image.shape[:2]
-    blob = cv2.dnn.blobFromImage(cv2.resize(image, (300, 300)), 1.0, 
-                               (300, 300), (104.0, 177.0, 123.0))
-    face_net.setInput(blob)
-    detections = face_net.forward()
-    
-    faces = []
-    for i in range(detections.shape[2]):
-        confidence = detections[0, 0, i, 2]
-        if confidence > FACE_CONFIDENCE:
-            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-            x1, y1, x2, y2 = box.astype("int")
-            # Ensure valid coordinates and minimum size
-            if (x2 - x1) > MIN_FACE_SIZE and (y2 - y1) > MIN_FACE_SIZE:
-                faces.append((x1, y1, x2, y2))
-    return faces
+# Feature weights
+FACE_WEIGHT = 0.4
+BODY_WEIGHT = 0.7
+COLOR_WEIGHT = 0.9
 
-def preprocess_face(face_img):
-    """Preprocess face image for FaceNet model"""
-    face_img = cv2.resize(face_img, FACE_IMAGE_SIZE)
-    face_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
-    face_img = (face_img / 255.0 - 0.5) / 0.5  # Normalize to [-1, 1]
-    return torch.tensor(face_img.transpose(2, 0, 1), 
-                      dtype=torch.float32).unsqueeze(0).to(device)
+class PersonComparator:
+    def _init(self):  # Fixed: _init → _init_
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"Using device: {self.device}")
+        
+        # Load models
+        self.yolo = YOLO("yolov9e.pt")
+        self.face_analyzer = insightface.app.FaceAnalysis()
+        self.face_analyzer.prepare(ctx_id=0 if self.device=='cuda' else -1, det_size=(640, 640))
+        self.reid_model = FeatureExtractor(model_name='osnet_x1_0', device=self.device)
+        
+        # Query person attributes
+        self.query_face_feat = None
+        self.query_body_feat = None
+        self.query_color_feat = None
+        self.query_gender = "unknown"
+        self.query_age = 0
+        self.query_dominant_color = "unknown"
+        
+        print("Models loaded successfully")
 
-def get_color_histogram(img):
-    """Get color histogram for clothing analysis"""
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    hist = cv2.calcHist([hsv], [0, 1], None, [180, 256], [0, 180, 0, 256])
-    hist = cv2.normalize(hist, hist).flatten()
-    return hist
+    def get_dominant_color(self, image, k=1):
+        """Get dominant color from upper body region"""
+        h, w = image.shape[:2]
+        upper_body = image[:h//2, :]
+        pixels = upper_body.reshape(-1, 3)
+        pixels = np.float32(pixels)
+        
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, 0.1)
+        _, labels, centers = cv2.kmeans(pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+        
+        center = np.uint8(centers)[0]
+        return self.color_name(center)
 
-# Process query image
+    def color_name(self, bgr):
+        """Convert BGR color to name approximation"""
+        colors = {
+            'red': [0, 0, 255],
+            'blue': [255, 0, 0],
+            'green': [0, 255, 0],
+            'black': [0, 0, 0],
+            'white': [255, 255, 255],
+            'yellow': [0, 255, 255],
+            'purple': [255, 0, 255],
+            'orange': [0, 165, 255],
+            'gray': [128, 128, 128]
+        }
+        min_dist = float('inf')
+        color_name = 'unknown'
+        for name, rgb in colors.items():
+            dist = np.linalg.norm(bgr - rgb[::-1])  # Convert RGB to BGR
+            if dist < min_dist:
+                min_dist = dist
+                color_name = name
+        return color_name
 
-query_img = cv2.imread(img)
-if query_img is None:
-    print(f"Error loading query image: {img}")
-    exit(1)
+    def load_query(self, image_path):
+        """Load and analyze query image"""
+        print(f"Processing query image: {image_path}")
+        image = cv2.imread(image_path)
+        if image is None:
+            raise ValueError(f"Could not load image from {image_path}")
+        
+        # Face analysis
+        faces = self.face_analyzer.get(image)
+        if faces:
+            face = max(faces, key=lambda x: x.det_score)
+            self.query_face_feat = face.embedding / np.linalg.norm(face.embedding)
+            self.query_gender = "Male" if face.gender == 1 else "Female"
+            self.query_age = int(face.age)
+        
+        # Body features
+        self.query_body_feat = self.extract_body_features(image)
+        
+        # Color analysis
+        self.query_dominant_color = self.get_dominant_color(image)
+        
+        print(f"Query person attributes - Gender: {self.query_gender}, "
+              f"Age: {self.query_age}, Dominant Color: {self.query_dominant_color}")
 
-# Detect person in query image
-results = yolo_model.predict(query_img, conf=0.7, classes=[0])
-query_person = None
-best_area = 0
-for r in results:
-    for box in r.boxes:
-        x1, y1, x2, y2 = map(int, box.xyxy[0])
-        area = (x2 - x1) * (y2 - y1)
-        if area > best_area and (y2 - y1) > MIN_PERSON_HEIGHT:
-            best_area = area
-            query_person = query_img[y1:y2, x1:x2]
-
-if query_person is None:
-    print("No person detected in query image")
-    exit(1)
-
-# Extract query features
-query_features = {
-    'face': None,
-    'body': None,
-    'colors': None
-}
-
-# Face features
-faces = detect_faces(query_person)
-if faces:
-    # Take largest face
-    x1f, y1f, x2f, y2f = max(faces, key=lambda f: (f[2]-f[0])*(f[3]-f[1]))
-    face_img = query_person[y1f:y2f, x1f:x2f]
-    if face_img.size > 0:
+    def extract_body_features(self, image):
+        """Extract ReID features"""
+        resized = cv2.resize(image, (128, 256))
+        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
         with torch.no_grad():
-            face_tensor = preprocess_face(face_img)
-            query_features['face'] = face_extractor(face_tensor).cpu().numpy().flatten()
-            query_features['face'] /= np.linalg.norm(query_features['face'])
+            features = self.reid_model([rgb])[0].cpu().numpy()
+        return features / np.linalg.norm(features)
 
-# Body features
-reid_img = cv2.resize(query_person, REID_IMAGE_SIZE)
-reid_img = cv2.cvtColor(reid_img, cv2.COLOR_BGR2RGB)
-query_features['body'] = reid_extractor([reid_img])[0].cpu().numpy()
-query_features['body'] /= np.linalg.norm(query_features['body'])
+    def analyze_person(self, person_img):
+        """Analyze detected person for similarity"""
+        similarity_reasons = []
+        total_score = 0
+        weights = []
+        
+        # Face comparison
+        faces = self.face_analyzer.get(person_img)
+        face_score = 0
+        current_gender = "unknown"
+        current_age = 0
+        
+        if faces and self.query_face_feat is not None:
+            face = max(faces, key=lambda x: x.det_score)
+            face_feat = face.embedding / np.linalg.norm(face.embedding)
+            face_score = np.dot(face_feat, self.query_face_feat)
+            current_gender = "Male" if face.gender == 1 else "Female"
+            current_age = int(face.age)
+            
+            similarity_reasons.append(f"Face: {face_score*100:.1f}%")
+            total_score += face_score * FACE_WEIGHT
+            weights.append(FACE_WEIGHT)
 
-# Color features (split upper/lower body)
-h = query_person.shape[0]
-upper = query_person[:h//2, :]
-lower = query_person[h//2:, :]
-query_features['colors'] = np.concatenate([
-    get_color_histogram(upper),
-    get_color_histogram(lower)
-])
+        # Body comparison
+        if self.query_body_feat is not None:
+            body_feat = self.extract_body_features(person_img)
+            body_score = 1 - cosine(body_feat, self.query_body_feat)
+            similarity_reasons.append(f"Body: {body_score*100:.1f}%")
+            total_score += body_score * BODY_WEIGHT
+            weights.append(BODY_WEIGHT)
 
-# Video processing
-cap = cv2.VideoCapture(src)
-best_match = {'similarity': 0, 'frame': None, 'box': None}
+        # Color comparison
+        current_color = self.get_dominant_color(person_img)
+        color_score = 1 if current_color == self.query_dominant_color else 0.3
+        similarity_reasons.append(f"Color: {current_color}")
+        total_score += color_score * COLOR_WEIGHT
+        weights.append(COLOR_WEIGHT)
 
-while cap.isOpened():
-    success, frame = cap.read()
-    if not success:
-        break
+        # Demographic comparison
+        demo_reasons = []
+        if current_gender == self.query_gender:
+            demo_reasons.append("gender")
+        if abs(current_age - self.query_age) <= 10:
+            demo_reasons.append("age")
+        
+        if demo_reasons:
+            similarity_reasons.append("Matched " + "+".join(demo_reasons))
 
-    results = yolo_model.predict(frame, conf=0.7, classes=[0])
+        # Normalize total score
+        if weights:
+            total_score /= sum(weights)
+        else:
+            total_score = 0
+            
+        return total_score, similarity_reasons
+
+    def process_video(self, video_path):
+        """Process video stream and find matches"""
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise ValueError("Could not open video source")
+            
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter('output.mp4', fourcc, fps, (width, height))
+        
+        history = deque(maxlen=30)
+        
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+                
+            # Detect people
+            results = self.yolo(frame, classes=[0])
+            best_match = None
+            best_score = 0
+            best_reasons = []
+            
+            for box in results[0].boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                if (y2 - y1) < MIN_HEIGHT:
+                    continue
+                    
+                person_img = frame[y1:y2, x1:x2]
+                score, reasons = self.analyze_person(person_img)
+                
+                if score > best_score:
+                    best_score = score
+                    best_match = (x1, y1, x2, y2)
+                    best_reasons = reasons
+            
+            # Update history for smoothing
+            history.append(best_score)
+            smoothed_score = sum(history) / len(history) if history else 0
+            
+            # Draw results
+            if best_match and smoothed_score > 0.5:
+                x1, y1, x2, y2 = best_match
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                
+                # Display similarity info
+                y_pos = y1 - 10 if y1 > 30 else y2 + 20
+                cv2.putText(frame, f"Match: {smoothed_score*100:.1f}%", (x1, y_pos),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                
+                # Display reasons
+                for i, reason in enumerate(best_reasons):
+                    cv2.putText(frame, reason, (10, 30 + i*30),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+            
+            out.write(frame)
+            cv2.imshow("Person Search", frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        
+        cap.release()
+        out.release()
+        cv2.destroyAllWindows()
+
+if _name_ == "_main":  # Fixed: _main → _main_
+    comparator = PersonComparator()
     
-    for r in results:
-        for box in r.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            if (y2 - y1) < MIN_PERSON_HEIGHT:
-                continue
-            
-            person_crop = frame[y1:y2, x1:x2]
-            
-            # Initialize target features
-            target_features = {
-                'face': None,
-                'body': None,
-                'colors': None
-            }
-
-            # Extract face features
-            faces = detect_faces(person_crop)
-            if faces:
-                x1f, y1f, x2f, y2f = max(faces, key=lambda f: (f[2]-f[0])*(f[3]-f[1]))
-                face_img = person_crop[y1f:y2f, x1f:x2f]
-                if face_img.size > 0:
-                    with torch.no_grad():
-                        face_tensor = preprocess_face(face_img)
-                        target_features['face'] = face_extractor(face_tensor).cpu().numpy().flatten()
-                        target_features['face'] /= np.linalg.norm(target_features['face'])
-
-            # Extract body features
-            reid_img = cv2.resize(person_crop, REID_IMAGE_SIZE)
-            reid_img = cv2.cvtColor(reid_img, cv2.COLOR_BGR2RGB)
-            target_features['body'] = reid_extractor([reid_img])[0].cpu().numpy()
-            target_features['body'] /= np.linalg.norm(target_features['body'])
-
-            # Extract color features
-            h_p = person_crop.shape[0]
-            upper_p = person_crop[:h_p//2, :]
-            lower_p = person_crop[h_p//2:, :]
-            target_features['colors'] = np.concatenate([
-                get_color_histogram(upper_p),
-                get_color_histogram(lower_p)
-            ])
-
-            # Calculate similarities
-            similarities = []
-            
-            # Face similarity
-            if query_features['face'] is not None and target_features['face'] is not None:
-                face_sim = np.dot(query_features['face'], target_features['face'])
-                similarities.append(face_sim * FACE_SIM_WEIGHT)
-            
-            # Body similarity
-            body_sim = 1 - cosine(query_features['body'], target_features['body'])
-            similarities.append(body_sim * (1 - FACE_SIM_WEIGHT))
-            
-            # Color similarity
-            color_sim = cv2.compareHist(
-                query_features['colors'].astype(np.float32),
-                target_features['colors'].astype(np.float32),
-                cv2.HISTCMP_BHATTACHARYYA
-            )
-            similarities.append((1 - color_sim) * 0.3)  # Lower weight for colors
-            
-            # Combined similarity score
-            total_sim = sum(similarities) / len(similarities)
-            
-            # Update best match
-            if total_sim > best_match['similarity']:
-                best_match['similarity'] = total_sim
-                best_match['frame'] = frame.copy()
-                best_match['box'] = (x1, y1, x2, y2)
-
-            # Visualization
-            color = (0, 255, 0) if total_sim > 0.6 else (0, 0, 255)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(frame, f"{total_sim:.2f}", (x1, y1-10), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+    # Provide path to query image
+    query_path = r"C:\Users\dhili\Desktop\WhatsApp Image 2025-03-06 at 19.08.40_13aa51e6.jpg" 
+    comparator.load_query(query_path)
     
-    cv2.imshow("Detection", frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
-
-# Save best match
-if best_match['frame'] is not None:
-    x1, y1, x2, y2 = best_match['box']
-    cv2.rectangle(best_match['frame'], (x1, y1), (x2, y2), (0, 255, 255), 3)
-    cv2.imwrite("best_match.jpg", best_match['frame'])
-    print(f"Best similarity: {best_match['similarity']:.2f}")
-else:
-    print("No matches found")
+    # Provide path to search video
+    video_path = r"C:\Users\dhili\Desktop\WhatsApp Video 2025-03-06 at 19.08.44_9746701d.mp4"
+    comparator.process_video(video_path)

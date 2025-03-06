@@ -72,6 +72,7 @@ model TrackRecord {
   referenceImageId String? // Optional in case of no reference image
   type             TrackType
   timestamp        DateTime
+  confidence       Float
 
   cctv           CCTV            @relation(fields: [cctvId], references: [id])
   video          Video           @relation(fields: [videoId], references: [id])
