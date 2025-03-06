@@ -1,4 +1,4 @@
-// src\pages\tracked-object.tsx
+// src/pages/tracked-object.tsx
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
@@ -83,7 +83,7 @@ function NewObjectDialog({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
       <div className="bg-white rounded-lg p-6 w-96">
         <h3 className="text-lg font-semibold mb-4">Add New Object</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -122,7 +122,7 @@ function NewObjectDialog({ onClose }: { onClose: () => void }) {
           <div className="flex justify-end space-x-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => { console.log('Cancel clicked'); onClose(); }}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Cancel
@@ -176,8 +176,7 @@ export function TrackedObject() {
 
     sortedDetections.forEach(detection => {
       if (!detection.disputed) {
-        if (lastValidTime === null || 
-            detection.startTime.getTime() - lastValidTime < 300000) {
+        if (lastValidTime === null || detection.startTime.getTime() - lastValidTime < 300000) {
           coordinates.push(detection.cameraLocation);
         }
         lastValidTime = detection.startTime.getTime();
@@ -226,7 +225,7 @@ export function TrackedObject() {
       {/* Left Panel - Map and Timeline */}
       <div className="w-1/2 flex flex-col gap-4">
         {/* Map */}
-        <div className="h-2/3 bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="h-2/3 bg-white rounded-lg shadow-md overflow-hidden z-0">
           <MapContainer
             center={cameras[0]?.location || [51.505, -0.09]}
             zoom={13}
@@ -264,9 +263,9 @@ export function TrackedObject() {
                 key={camera.id}
                 className={`p-4 border rounded-lg transition-all
                   ${camera.detections.some(d => d.disputed) ? 'border-red-200 bg-red-50' : 'border-gray-200 hover:bg-gray-50'}
-                  ${camera.id === selectedCamera ? 'ring-2 ring-blue-500' : ''}
-                `}
+                  ${camera.id === selectedCamera ? 'ring-2 ring-blue-500' : ''}`}
                 onClick={() => {
+                  console.log('Timeline camera clicked:', camera);
                   setSelectedCamera(camera.id);
                   setVideoUrl('https://vjs.zencdn.net/v/oceans.mp4');
                 }}
@@ -316,7 +315,7 @@ export function TrackedObject() {
                       className="px-3 py-1 text-sm bg-white border border-red-300 text-red-600 rounded hover:bg-red-50"
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Handle review logic
+                        // Handle review logic here
                       }}
                     >
                       Review Detection
@@ -335,10 +334,7 @@ export function TrackedObject() {
         <div className="h-2/3 bg-black rounded-lg overflow-hidden relative">
           {videoUrl ? (
             <div data-vjs-player className="h-full">
-              <video
-                ref={videoRef}
-                className="video-js vjs-big-play-centered h-full"
-              />
+              <video ref={videoRef} className="video-js vjs-big-play-centered h-full" />
               {isSelecting && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <div className="text-white text-center">
@@ -356,19 +352,25 @@ export function TrackedObject() {
         </div>
 
         {/* Object Selection Panel */}
-        <div className="flex-1 bg-white rounded-lg shadow-md p-4">
+        <div className="flex-1 bg-white rounded-lg shadow-md p-4 relative z-10">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold">Object Selection</h2>
             <div className="space-x-2">
               <button
-                onClick={() => setShowNewObjectDialog(true)}
+                onClick={() => {
+                  console.log('New Object clicked');
+                  setShowNewObjectDialog(true);
+                }}
                 className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center space-x-1"
               >
                 <Plus className="h-4 w-4" />
                 <span>New Object</span>
               </button>
               <button
-                onClick={() => setIsSelecting(true)}
+                onClick={() => {
+                  console.log('Update Reference clicked');
+                  setIsSelecting(true);
+                }}
                 className="px-3 py-1 text-sm border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50 flex items-center space-x-1"
               >
                 <ImageIcon className="h-4 w-4" />
@@ -386,7 +388,10 @@ export function TrackedObject() {
                   className={`p-3 border rounded-lg cursor-pointer transition-all
                     ${selectedObject?.id === object.id ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'}
                   `}
-                  onClick={() => setSelectedObject(object)}
+                  onClick={() => {
+                    console.log('Object selected:', object);
+                    setSelectedObject(object);
+                  }}
                 >
                   <div className="flex items-center space-x-2 mb-2">
                     <Icon className="h-5 w-5 text-gray-600" />

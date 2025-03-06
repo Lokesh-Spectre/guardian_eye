@@ -8,7 +8,6 @@ import insightface
 from ultralytics import YOLO
 from torchreid.utils import FeatureExtractor
 from scipy.spatial.distance import cosine
-import time
 from collections import deque
 
 # Configuration
@@ -18,21 +17,21 @@ os.makedirs(MODELS_DIR, exist_ok=True)
 # Detection thresholds
 FACE_THRESHOLD = 0.65
 REID_THRESHOLD = 0.50
-MIN_HEIGHT = 1
-TRACKING_BUFFER = 100
+MIN_HEIGHT = 100
+TRACKING_BUFFER = 25
 
 # Feature weights
-FACE_WEIGHT = 0.4
+FACE_WEIGHT = 0.6
 BODY_WEIGHT = 0.7
-COLOR_WEIGHT = 0.9
+COLOR_WEIGHT = 0.3
 
 class PersonComparator:
-    def __init__(self):  # Fixed: _init_ → __init__
+    def __init__(self):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"Using device: {self.device}")
         
         # Load models
-        self.yolo = YOLO("yolov9e.pt")
+        self.yolo = YOLO("yolov8x.pt")
         self.face_analyzer = insightface.app.FaceAnalysis()
         self.face_analyzer.prepare(ctx_id=0 if self.device=='cuda' else -1, det_size=(640, 640))
         self.reid_model = FeatureExtractor(model_name='osnet_x1_0', device=self.device)
@@ -171,7 +170,7 @@ class PersonComparator:
         return total_score, similarity_reasons
 
     def process_video(self, video_path):
-        """Process video stream and find matches"""
+        """Process video stream, track the best matching person, and record entry/exit timestamps."""
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError("Could not open video source")
@@ -185,12 +184,21 @@ class PersonComparator:
         
         history = deque(maxlen=30)
         
+        # Variables for tracking presence
+        match_present = False
+        match_intervals = []
+        enter_time = None
+        frame_index = 0
+
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
-                
-            # Detect people
+
+            # Calculate current time in seconds based on frame index
+            current_time = frame_index / fps
+            
+            # Detect people (class 0 is usually 'person')
             results = self.yolo(frame, classes=[0])
             best_match = None
             best_score = 0
@@ -200,10 +208,8 @@ class PersonComparator:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 if (y2 - y1) < MIN_HEIGHT:
                     continue
-                    
                 person_img = frame[y1:y2, x1:x2]
                 score, reasons = self.analyze_person(person_img)
-                
                 if score > best_score:
                     best_score = score
                     best_match = (x1, y1, x2, y2)
@@ -213,37 +219,72 @@ class PersonComparator:
             history.append(best_score)
             smoothed_score = sum(history) / len(history) if history else 0
             
-            # Draw results
+            # Check if match is present (using a threshold, here 0.5)
             if best_match and smoothed_score > 0.5:
+                # If the match was not previously in the frame, record entry time.
+                if not match_present:
+                    enter_time = current_time
+                    match_present = True
+                    print(f"Match entered at {enter_time:.2f} seconds")
+                # Draw bounding box and info
                 x1, y1, x2, y2 = best_match
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                
-                # Display similarity info
                 y_pos = y1 - 10 if y1 > 30 else y2 + 20
                 cv2.putText(frame, f"Match: {smoothed_score*100:.1f}%", (x1, y_pos),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                
-                # Display reasons
                 for i, reason in enumerate(best_reasons):
                     cv2.putText(frame, reason, (10, 30 + i*30),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+            else:
+                # If previously detected but now missing, record exit time.
+                if match_present:
+                    exit_time = current_time
+                    match_intervals.append((enter_time, exit_time))
+                    match_present = False
+                    print(f"Match exited at {exit_time:.2f} seconds")
             
             out.write(frame)
             cv2.imshow("Person Search", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+            
+            frame_index += 1
+        
+        # If match is still present at end of video, record exit at the final time.
+        if match_present:
+            exit_time = frame_index / fps
+            match_intervals.append((enter_time, exit_time))
+            print(f"Match exited at {exit_time:.2f} seconds (end of video)")
         
         cap.release()
         out.release()
         cv2.destroyAllWindows()
+        
+        # Merge intervals if the gap between intervals is less than 3 seconds
+        if match_intervals:
+            merged_intervals = [match_intervals[0]]
+            for current in match_intervals[1:]:
+                last = merged_intervals[-1]
+                if current[0] - last[1] < 3:
+                    # Merge the intervals by extending the end time
+                    merged_intervals[-1] = (last[0], current[1])
+                else:
+                    merged_intervals.append+(current)
+        else:
+            merged_intervals = []
 
-if __name__ == "__main__":  # Fixed: _main_ → __main__
+        # Print all merged intervals when the person was present.
+        print("Merged match time intervals (in seconds):")
+        for idx, (start, end) in enumerate(merged_intervals, 1):
+            print(f"Interval {idx}: Start = {start:.2f}s, End = {end:.2f}s")
+
+if __name__ == "__main__":
     comparator = PersonComparator()
     
     # Provide path to query image
-    query_path = r"C:\Users\dhili\Desktop\WhatsApp Image 2025-03-06 at 19.08.40_13aa51e6.jpg" 
+    query_path = r"C:\Users\dhili\Desktop\WhatsApp Image 2025-03-06 at 19.08.40_13aa51e6.jpg"  # Replace with your image path
     comparator.load_query(query_path)
     
     # Provide path to search video
-    video_path = r"C:\Users\dhili\Desktop\WhatsApp Video 2025-03-06 at 19.08.44_9746701d.mp4"
+    video_path = r"C:\Users\dhili\Desktop\WhatsApp Video 2025-03-06 at 19.08.37_bc724ff5.mp4"  # Replace with your video path
     comparator.process_video(video_path)
