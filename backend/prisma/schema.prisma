@@ -90,6 +90,7 @@ model Video {
   cctvId         String
   videoStartTime DateTime
   description    String?
+  path           String
   cctv           CCTV          @relation(fields: [cctvId], references: [id])
   trackRecords   TrackRecord[]
 }
