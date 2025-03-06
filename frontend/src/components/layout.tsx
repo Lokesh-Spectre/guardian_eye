@@ -1,3 +1,4 @@
+// src\components\layout.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, Map, Camera, Upload } from 'lucide-react';

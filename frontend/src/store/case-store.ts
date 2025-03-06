@@ -1,5 +1,6 @@
-import { create } from 'zustand';
-import { casesApi, type Case } from '../lib/api';
+// src\store\case-store.ts
+import { create } from "zustand";
+import { casesApi, type Case } from "../lib/api";
 
 interface CaseStore {
   cases: Case[];
@@ -9,14 +10,14 @@ interface CaseStore {
   error: string | null;
   fetchCases: () => Promise<void>;
   searchCases: (query: string) => Promise<void>;
-  addCase: (caseData: Omit<Case, 'id' | 'createdAt'>) => Promise<void>;
+  addCase: (caseData: Omit<Case, "id" | "createdAt">) => Promise<void>;
   selectCase: (id: string) => void;
 }
 
 export const useCaseStore = create<CaseStore>((set, get) => ({
   cases: [],
   selectedCase: null,
-  searchQuery: '',
+  searchQuery: "",
   isLoading: false,
   error: null,
 
@@ -26,7 +27,7 @@ export const useCaseStore = create<CaseStore>((set, get) => ({
       const cases = await casesApi.getAllCases();
       set({ cases, isLoading: false });
     } catch (error) {
-      set({ error: 'Failed to fetch cases', isLoading: false });
+      set({ error: "Failed to fetch cases", isLoading: false });
     }
   },
 
@@ -36,7 +37,7 @@ export const useCaseStore = create<CaseStore>((set, get) => ({
       const cases = await casesApi.searchCases(query);
       set({ cases, isLoading: false });
     } catch (error) {
-      set({ error: 'Failed to search cases', isLoading: false });
+      set({ error: "Failed to search cases", isLoading: false });
     }
   },
 
@@ -49,7 +50,7 @@ export const useCaseStore = create<CaseStore>((set, get) => ({
         isLoading: false,
       }));
     } catch (error) {
-      set({ error: 'Failed to create case', isLoading: false });
+      set({ error: "Failed to create case", isLoading: false });
     }
   },
 

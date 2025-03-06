@@ -1,3 +1,4 @@
+// src\App.tsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/layout';
@@ -15,6 +16,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/case/:id" element={<CaseDashboard />} />
+          <Route path="/case/:id/tracking" element={<TrackedObject />} />
           <Route path="/tracking/:id" element={<ObjectTracking />} />
           <Route path="/tracked-object/:id" element={<TrackedObject />} />
           <Route path="/cctvs" element={<CCTVs />} />
