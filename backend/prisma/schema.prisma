@@ -1,0 +1,95 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./guardian-eye.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model CCTV {
+  id                  String    @id @default(uuid())
+  name                String
+  description         String?
+  direction           Float // Angle with respect to North
+  latitude            Float
+  longitude           Float
+  isActive            Boolean   @default(true)
+  lastMaintenanceDate DateTime?
+
+  videos       Video[]
+  trackRecords TrackRecord[]
+}
+
+model Case {
+  id             String          @id @default(uuid())
+  name           String
+  description    String?
+  isClose        Boolean
+  caseStatus     CaseStatus
+  trackedObjects TrackedObject[] @relation("CaseTrackedObjects")
+}
+
+enum CaseStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+model TrackedObject {
+  id                String           @id @default(uuid())
+  name              String
+  description       String?
+  type              ObjectType
+  lastSeenTimestamp DateTime
+  currentLocation   String?
+  referenceImages   ReferenceImage[]
+
+  cases        Case[]        @relation("CaseTrackedObjects")
+  trackRecords TrackRecord[]
+}
+
+enum ObjectType {
+  HUMAN
+  VEHICLE
+  OBJECT
+}
+
+model ReferenceImage {
+  id              String        @id @default(uuid())
+  path            String
+  type            ObjectType
+  trackedObjectId String
+  trackedObject   TrackedObject @relation(fields: [trackedObjectId], references: [id])
+  TrackRecord     TrackRecord[]
+}
+
+model TrackRecord {
+  id               String    @id @default(uuid())
+  cctvId           String
+  videoId          String
+  trackedObjectId  String
+  referenceImageId String? // Optional in case of no reference image
+  type             TrackType
+  timestamp        DateTime
+
+  cctv           CCTV            @relation(fields: [cctvId], references: [id])
+  video          Video           @relation(fields: [videoId], references: [id])
+  trackedObject  TrackedObject   @relation(fields: [trackedObjectId], references: [id])
+  referenceImage ReferenceImage? @relation(fields: [referenceImageId], references: [id])
+}
+
+enum TrackType {
+  ENTRY
+  EXIT
+  BEST_VIEW
+}
+
+model Video {
+  id             String        @id @default(uuid())
+  cctvId         String
+  videoStartTime DateTime
+  description    String?
+  cctv           CCTV          @relation(fields: [cctvId], references: [id])
+  trackRecords   TrackRecord[]
+}
