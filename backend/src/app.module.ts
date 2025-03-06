@@ -8,6 +8,7 @@ import { TrackRecordModule } from './track_record/track_record.module';
 import { TrackedObjectModule } from './tracked_object/tracked_object.module';
 import { VideoModule } from './video/video.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ReferenceImageModule } from './reference_image/reference_image.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PrismaModule } from './prisma/prisma.module';
     TrackedObjectModule,
     VideoModule,
     PrismaModule,
+    ReferenceImageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

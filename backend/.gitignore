@@ -136,3 +136,6 @@ dist
 .pnp.*
 
 *.db
+*.mp4
+videos/*
+photos/*

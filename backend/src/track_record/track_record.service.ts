@@ -10,16 +10,7 @@ export class TrackRecordService {
 
   async create(createTrackRecordDto: CreateTrackRecordDto) {
     return await this.prisma.trackRecord.create({
-      data: {
-        cctvId: createTrackRecordDto.cctvId,
-        videoId: createTrackRecordDto.videoId,
-        trackedObjectId: createTrackRecordDto.trackedObjectId,
-        referenceImageId: createTrackRecordDto.referenceImageIds
-          ? createTrackRecordDto.referenceImageIds[0] // Assuming a single reference image for now
-          : undefined,
-        type: createTrackRecordDto.type,
-        timestamp: createTrackRecordDto.timestamp,
-      },
+      data: createTrackRecordDto,
     });
   }
 
@@ -49,16 +40,7 @@ export class TrackRecordService {
   async update(id: string, updateTrackRecordDto: UpdateTrackRecordDto) {
     return await this.prisma.trackRecord.update({
       where: { id },
-      data: {
-        cctvId: updateTrackRecordDto.cctvId,
-        videoId: updateTrackRecordDto.videoId,
-        trackedObjectId: updateTrackRecordDto.trackedObjectId,
-        referenceImageId: updateTrackRecordDto.referenceImageIds
-          ? updateTrackRecordDto.referenceImageIds[0] // Assuming a single reference image for now
-          : undefined,
-        type: updateTrackRecordDto.type,
-        timestamp: updateTrackRecordDto.timestamp,
-      },
+      data: updateTrackRecordDto,
     });
   }
 
