@@ -27,7 +27,7 @@ BODY_WEIGHT = 0.7
 COLOR_WEIGHT = 0.9
 
 class PersonComparator:
-    def _init(self):  # Fixed: _init → _init_
+    def __init__(self):  # Fixed: _init_ → __init__
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"Using device: {self.device}")
         
@@ -237,7 +237,7 @@ class PersonComparator:
         out.release()
         cv2.destroyAllWindows()
 
-if _name_ == "_main":  # Fixed: _main → _main_
+if __name__ == "__main__":  # Fixed: _main_ → __main__
     comparator = PersonComparator()
     
     # Provide path to query image
