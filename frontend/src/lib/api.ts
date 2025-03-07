@@ -203,18 +203,27 @@ export const casesApi = {
     updates: Partial<TrackedObject>
   ): Promise<TrackedObject> => {
     // For now, simulate updating the object
-    return {
-      id: objectId,
-      caseId: "case-001",
-      type: "person",
-      name: "Updated Object",
-      description: "Updated description",
-      lastSeen: new Date(),
-      location: "Updated location",
-      confidence: 0.9,
-      status: "active",
-      referenceImages: updates.referenceImages || [],
+    const payload = {
+      name: TrackedObject.name,
+      description: "None",
+      type: "HUMAN",
+      lastseenSeenTimestamp: new Date(),
+      currentLocation: "not detected yet",
     };
+    const resp = await api.post("/tracked-object", payload);
+    return resp.data;
+    // return {
+    //   id: objectId,
+    //   caseId: "case-001",
+    //   type: "person",
+    //   name: "Updated Object",
+    //   description: "Updated description",
+    //   lastSeen: new Date(),
+    //   location: "Updated location",
+    //   confidence: 0.9,
+    //   status: "active",
+    //   referenceImages: updates.referenceImages || [],
+    // };
   },
 
   addReferenceImage: async (
@@ -222,6 +231,7 @@ export const casesApi = {
     imageData: string
   ): Promise<TrackedObject> => {
     // For now, simulate adding a reference image
+
     return {
       id: objectId,
       caseId: "case-001",
@@ -238,44 +248,56 @@ export const casesApi = {
 
   getCameras: async (): Promise<Camera[]> => {
     // For now, return dummy data
-    return [
-      {
-        id: "cam1",
-        name: "Main Street Camera",
-        location: [51.505, -0.09],
-        detections: [
-          {
-            id: "det1",
-            cameraId: "cam1",
-            startTime: new Date("2024-03-01T10:00:00Z"),
-            endTime: new Date("2024-03-01T10:05:00Z"),
-            confidence: 0.95,
-            objectId: "obj1",
-            verified: true,
-            disputed: false,
-            videoStartTime: 120,
-          },
-        ],
-      },
-      {
-        id: "cam2",
-        name: "Park Avenue Camera",
-        location: [51.51, -0.1],
-        detections: [
-          {
-            id: "det2",
-            cameraId: "cam2",
-            startTime: new Date("2024-03-01T10:30:00Z"),
-            endTime: new Date("2024-03-01T10:35:00Z"),
-            confidence: 0.88,
-            objectId: "obj1",
-            verified: true,
-            disputed: false,
-            videoStartTime: 180,
-          },
-        ],
-      },
-    ];
+    const resp = await api.get("/cctv");
+    const data = resp.data.map(
+      (a: { id: any; name: any; directions: any; location: any }) => ({
+        id: a.id,
+        name: a.name,
+        lattitude: a.location[0],
+        longitude: a.location[1],
+        isActive: true,
+        lastMaintenanceDate: new Date(),
+      })
+    );
+    return data;
+    // return [
+    //   {
+    //     id: "cam1",
+    //     name: "Main Street Camera",
+    //     location: [51.505, -0.09],
+    //     detections: [
+    //       {
+    //         id: "det1",
+    //         cameraId: "cam1",
+    //         startTime: new Date("2024-03-01T10:00:00Z"),
+    //         endTime: new Date("2024-03-01T10:05:00Z"),
+    //         confidence: 0.95,
+    //         objectId: "obj1",
+    //         verified: true,
+    //         disputed: false,
+    //         videoStartTime: 120,
+    //       },
+    //     ],
+    //   },
+    //   {
+    //     id: "cam2",
+    //     name: "Park Avenue Camera",
+    //     location: [51.51, -0.1],
+    //     detections: [
+    //       {
+    //         id: "det2",
+    //         cameraId: "cam2",
+    //         startTime: new Date("2024-03-01T10:30:00Z"),
+    //         endTime: new Date("2024-03-01T10:35:00Z"),
+    //         confidence: 0.88,
+    //         objectId: "obj1",
+    //         verified: true,
+    //         disputed: false,
+    //         videoStartTime: 180,
+    //       },
+    //     ],
+    //   },
+    // ];
   },
 };
 
@@ -332,16 +354,36 @@ export interface CameraDetails {
 
 // Function to fetch camera details by ID
 export const getCameraDetails = async (id: string): Promise<CameraDetails> => {
-  const response = await api.get(`/cameras/${id}`);
-  // Ensure your backend returns the correct data structure
-  return response.data;
+  const resp = await api.get(`/cctv/`);
+  const data = resp.data.map(
+    (a: { id: any; name: any; directions: any; location: any }) => ({
+      id: a.id,
+      name: a.name,
+      lattitude: a.location[0],
+      longitude: a.location[1],
+      isActive: true,
+      lastMaintenanceDate: new Date(),
+    })
+  );
+  console.log(data);
+  return data;
 };
 
 // Function to update camera details
 export const updateCameraDetails = async (
   id: string,
-  details: Partial<CameraDetails>
+  Details: Partial<CameraDetails>
 ): Promise<CameraDetails> => {
-  const response = await api.put(`/cameras/${id}`, details);
+  const data = {
+    name: Details.name,
+    description: Details.description,
+    direction: Details.direction,
+    latitude: Details.location ? Details.location[0] : 0, // default value if undefined
+    longitude: Details.location ? Details.location[1] : 0,
+    isActive: true,
+    lastMaintenanceDate: new Date(),
+  };
+  const response = await api.post(`/cctv`, data);
+
   return response.data;
 };

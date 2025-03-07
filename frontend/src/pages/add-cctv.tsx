@@ -1,8 +1,9 @@
-// src\pages\add-cctv.tsx
+// src/pages/add-cctv.tsx
 import React, { useState } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import { Camera, Save } from "lucide-react";
 import "leaflet/dist/leaflet.css";
+import { updateCameraDetails } from "../lib/api";
 
 function DraggableMarker({
   position,
@@ -11,7 +12,7 @@ function DraggableMarker({
   position: [number, number];
   setPosition: (pos: [number, number]) => void;
 }) {
-  const map = useMapEvents({
+  useMapEvents({
     click(e) {
       setPosition([e.latlng.lat, e.latlng.lng]);
     },
@@ -24,8 +25,8 @@ function DraggableMarker({
       eventHandlers={{
         dragend: (e) => {
           const marker = e.target;
-          const position = marker.getLatLng();
-          setPosition([position.lat, position.lng]);
+          const pos = marker.getLatLng();
+          setPosition([pos.lat, pos.lng]);
         },
       }}
     />
@@ -41,10 +42,26 @@ export function AddCCTV() {
     direction: 0,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle camera addition logic here
-    console.log("Camera details:", { ...cameraDetails, position });
+    try {
+      // Generate a new camera id (for creation)
+      const newCameraId = crypto.randomUUID();
+      // Build the payload to match CameraDetails interface
+      const payload = {
+        name: cameraDetails.name,
+        description: cameraDetails.description,
+        angle: cameraDetails.angle,
+        direction: cameraDetails.direction,
+        location: position,
+      };
+
+      // Call updateCameraDetails (used here for creation)
+      const newCamera = await updateCameraDetails(newCameraId, payload);
+      console.log("Camera added:", newCamera);
+    } catch (error) {
+      console.error("Error creating camera:", error);
+    }
   };
 
   return (
