@@ -1,18 +1,25 @@
 // src\pages\case-dashboard.tsx
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Clock, Eye, Plus, User, Car, Package, X } from 'lucide-react';
-import { useCaseStore } from '../store/case-store';
-import { casesApi, type TrackedObject } from '../lib/api';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { MapPin, Clock, Eye, Plus, User, Car, Package, X } from "lucide-react";
+import { useCaseStore } from "../store/case-store";
+import { casesApi, type TrackedObject } from "../lib/api";
 
-function NewObjectDialog({ onClose, onSubmit }: { 
+function NewObjectDialog({
+  onClose,
+  onSubmit,
+}: {
   onClose: () => void;
-  onSubmit: (data: { type: TrackedObject['type']; name: string; description: string }) => void;
+  onSubmit: (data: {
+    type: TrackedObject["type"];
+    name: string;
+    description: string;
+  }) => void;
 }) {
   const [formData, setFormData] = useState({
-    type: 'person' as TrackedObject['type'],
-    name: '',
-    description: ''
+    type: "person" as TrackedObject["type"],
+    name: "",
+    description: "",
   });
 
   return (
@@ -20,20 +27,33 @@ function NewObjectDialog({ onClose, onSubmit }: {
       <div className="bg-white rounded-lg p-6 w-96">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Add New Object</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit(formData);
-          onClose();
-        }} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit(formData);
+            onClose();
+          }}
+          className="space-y-4"
+        >
           <div>
-            <label className="block text-sm font-medium text-gray-700">Type</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Type
+            </label>
             <select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as TrackedObject['type'] })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  type: e.target.value as TrackedObject["type"],
+                })
+              }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             >
               <option value="person">Person</option>
@@ -42,20 +62,28 @@ function NewObjectDialog({ onClose, onSubmit }: {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Name
+            </label>
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Description
+            </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               rows={3}
               required
@@ -90,20 +118,20 @@ export function CaseDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNewObjectDialog, setShowNewObjectDialog] = useState(false);
-  
-  const currentCase = cases.find(c => c.id === id);
+
+  const currentCase = cases.find((c) => c.id === id);
 
   useEffect(() => {
     const fetchTrackedObjects = async () => {
       if (!id) return;
-      
+
       try {
         setIsLoading(true);
         const objects = await casesApi.getTrackedObjects(id);
         setTrackedObjects(objects);
         setError(null);
       } catch (err) {
-        setError('Failed to fetch tracked objects');
+        setError("Failed to fetch tracked objects");
       } finally {
         setIsLoading(false);
       }
@@ -112,29 +140,29 @@ export function CaseDashboard() {
     fetchTrackedObjects();
   }, [id]);
 
-  const handleAddObject = async (objectData: { 
-    type: TrackedObject['type']; 
-    name: string; 
-    description: string 
+  const handleAddObject = async (objectData: {
+    type: TrackedObject["type"];
+    name: string;
+    description: string;
   }) => {
     if (!id) return;
 
     try {
       const newObject = await casesApi.createTrackedObject(id, {
         ...objectData,
-        referenceImages: []
+        referenceImages: [],
       });
-      setTrackedObjects(prev => [...prev, newObject]);
+      setTrackedObjects((prev) => [...prev, newObject]);
     } catch (err) {
-      setError('Failed to create tracked object');
+      setError("Failed to create tracked object");
     }
   };
 
-  const getObjectIcon = (type: TrackedObject['type']) => {
+  const getObjectIcon = (type: TrackedObject["type"]) => {
     switch (type) {
-      case 'person':
+      case "person":
         return User;
-      case 'vehicle':
+      case "vehicle":
         return Car;
       default:
         return Package;
@@ -154,7 +182,9 @@ export function CaseDashboard() {
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{currentCase.title}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {currentCase.title}
+            </h1>
             <p className="mt-1 text-gray-600">{currentCase.description}</p>
           </div>
           <div className="flex items-center space-x-3">
@@ -172,10 +202,17 @@ export function CaseDashboard() {
               <Plus className="h-5 w-5" />
               <span>Add Object</span>
             </button>
-            <span className={`px-3 py-1 rounded-full text-sm ${
-              currentCase.status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-            }`}>
-              {currentCase.status.charAt(0).toUpperCase() + currentCase.status.slice(1)}
+            <span
+              className={`px-3 py-1 rounded-full text-sm ${
+                currentCase.status === "open"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {currentCase.status
+                ? currentCase.status.charAt(0).toUpperCase() +
+                  currentCase.status.slice(1)
+                : "Open"}
             </span>
           </div>
         </div>
@@ -218,11 +255,15 @@ export function CaseDashboard() {
                       <Icon className="h-5 w-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">{object.name}</h3>
+                      <h3 className="font-medium text-gray-900">
+                        {object.name}
+                      </h3>
                       <p className="text-sm text-gray-500">{object.type}</p>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">{object.description}</p>
+                  <p className="text-sm text-gray-600 mb-3">
+                    {object.description}
+                  </p>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <MapPin className="h-4 w-4" />
@@ -230,19 +271,27 @@ export function CaseDashboard() {
                     </div>
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <Clock className="h-4 w-4" />
-                      <span>Last seen: {new Date(object.lastSeen).toLocaleString()}</span>
+                      <span>
+                        Last seen: {new Date(object.lastSeen).toLocaleString()}
+                      </span>
                     </div>
                   </div>
                   <div className="mt-3 flex justify-between items-center">
-                    <span className={`px-2 py-1 rounded-full text-sm ${
-                      object.status === 'active' 
-                        ? 'bg-green-100 text-green-800'
-                        : object.status === 'found'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {object.status.charAt(0).toUpperCase() + object.status.slice(1)}
+                    <span
+                      className={`px-2 py-1 rounded-full text-sm ${
+                        object.status === "active"
+                          ? "bg-green-100 text-green-800"
+                          : object.status === "found"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {object.status
+                        ? object.status.charAt(0).toUpperCase() +
+                          object.status.slice(1)
+                        : "Open"}
                     </span>
+
                     <span className="text-sm font-medium text-blue-600">
                       {(object.confidence * 100).toFixed(1)}% confidence
                     </span>
