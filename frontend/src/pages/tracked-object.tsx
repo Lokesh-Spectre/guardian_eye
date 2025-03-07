@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useTrackedObjectStore } from '../store/tracked-object-store';
 import type { Camera, Detection, TrackedObject } from '../store/tracked-object-store';
+import { uploadSnipImageFromCanvas } from '../lib/api';
 
 // Custom camera icon for the map
 const createCameraIcon = (isHighlighted: boolean, isDisputed: boolean) => L.divIcon({
@@ -259,7 +260,7 @@ export function TrackedObject() {
       );
       
       // Add captured image to object
-      const imageUrl = canvas.toDataURL('image/png');
+      const imageUrl = await uploadSnipImageFromCanvas(canvas);
       const updatedObject = {
         ...selectedObject,
         referenceImages: [...selectedObject.referenceImages, imageUrl]

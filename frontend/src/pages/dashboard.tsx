@@ -1,16 +1,17 @@
 // src\pages\dashboard.tsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Loader2 } from 'lucide-react';
-import { useCaseStore } from '../store/case-store';
-import { useDebounce } from '../hooks/use-debounce';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Search, Loader2 } from "lucide-react";
+import { useCaseStore } from "../store/case-store";
+import { useDebounce } from "../hooks/use-debounce";
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { cases, isLoading, error, fetchCases, searchCases, addCase } = useCaseStore();
+  const { cases, isLoading, error, fetchCases, searchCases, addCase } =
+    useCaseStore();
   const [isCreating, setIsCreating] = useState(false);
-  const [newCase, setNewCase] = useState({ title: '', description: '' });
-  const [searchQuery, setSearchQuery] = useState('');
+  const [newCase, setNewCase] = useState({ title: "", description: "" });
+  const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   useEffect(() => {
@@ -30,10 +31,10 @@ export function Dashboard() {
     await addCase({
       title: newCase.title,
       description: newCase.description,
-      status: 'open',
+      status: "open",
     });
     setIsCreating(false);
-    setNewCase({ title: '', description: '' });
+    setNewCase({ title: "", description: "" });
   };
 
   return (
@@ -70,7 +71,9 @@ export function Dashboard() {
                 <input
                   type="text"
                   value={newCase.title}
-                  onChange={(e) => setNewCase({ ...newCase, title: e.target.value })}
+                  onChange={(e) =>
+                    setNewCase({ ...newCase, title: e.target.value })
+                  }
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   required
                 />
@@ -81,7 +84,9 @@ export function Dashboard() {
                 Description
                 <textarea
                   value={newCase.description}
-                  onChange={(e) => setNewCase({ ...newCase, description: e.target.value })}
+                  onChange={(e) =>
+                    setNewCase({ ...newCase, description: e.target.value })
+                  }
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   rows={3}
                   required
@@ -127,15 +132,23 @@ export function Dashboard() {
             onClick={() => navigate(`/case/${case_.id}`)}
           >
             <div className="flex items-start justify-between mb-2">
-              <h3 className="text-lg font-semibold text-gray-900">{case_.title}</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {case_.title}
+              </h3>
               <span className="text-sm text-gray-500">{case_.id}</span>
             </div>
             <p className="text-gray-600 mb-4">{case_.description}</p>
             <div className="flex justify-between items-center">
-              <span className={`px-2 py-1 rounded-full text-sm ${
-                case_.status === 'open' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-              }`}>
-                {case_.status.charAt(0).toUpperCase() + case_.status.slice(1)}
+              <span
+                className={`px-2 py-1 rounded-full text-sm ${
+                  case_.status === "open"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {case_.status
+                  ? case_.status.charAt(0).toUpperCase() + case_.status.slice(1)
+                  : "open"}
               </span>
               <span className="text-sm text-gray-500">
                 {new Date(case_.createdAt).toLocaleDateString()}

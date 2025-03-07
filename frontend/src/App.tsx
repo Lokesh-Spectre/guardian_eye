@@ -1,15 +1,15 @@
 // src\App.tsx
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Layout } from './components/layout';
-import { Dashboard } from './pages/dashboard';
-import { CaseDashboard } from './pages/case-dashboard';
-import { ObjectTracking } from './pages/object-tracking';
-import { CCTVs } from './pages/cctvs';
-import { AddCCTV } from './pages/add-cctv';
-import { TrackedObject } from './pages/tracked-object';
-import Upload from './pages/upload';
-
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Layout } from "./components/layout";
+import { Dashboard } from "./pages/dashboard";
+import { CaseDashboard } from "./pages/case-dashboard";
+import { ObjectTracking } from "./pages/object-tracking";
+import { CCTVs } from "./pages/cctvs";
+import { AddCCTV } from "./pages/add-cctv";
+import { TrackedObject } from "./pages/tracked-object";
+import Upload from "./pages/upload";
+import ConfigureCCTV from "./pages/configure-cctv";
 
 function App() {
   return (
@@ -23,11 +23,12 @@ function App() {
           <Route path="/tracked-object/:id" element={<TrackedObject />} />
           <Route path="/cctvs" element={<CCTVs />} />
           <Route path="/cctvs/add" element={<AddCCTV />} />
-          <Route path="/upload" element={<Upload/>}></Route>
+          <Route path="/upload" element={<Upload />}></Route>
+          <Route path="/cctvs/configure/:id" element={<ConfigureCCTV />} />
         </Routes>
       </Layout>
     </Router>
   );
 }
 
-export default App
+export default App;

@@ -1,12 +1,19 @@
-// src\pages\cctvs.tsx
-import React, { useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { Link } from 'react-router-dom';
-import { Plus, Settings } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
+// src/pages/cctvs.tsx
+import React, { useState } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+  Polyline,
+} from "react-leaflet";
+import { Link } from "react-router-dom";
+import { Plus, Settings } from "lucide-react";
+import "leaflet/dist/leaflet.css";
 
 // Fix for default marker icons in React Leaflet
-import L from 'leaflet';
+import L from "leaflet";
 
 // Create a custom camera icon
 const cameraIcon = L.divIcon({
@@ -14,7 +21,7 @@ const cameraIcon = L.divIcon({
     <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
     <circle cx="12" cy="13" r="3"/>
   </svg>`,
-  className: 'camera-marker',
+  className: "camera-marker",
   iconSize: [24, 24],
   iconAnchor: [12, 12],
 });
@@ -24,7 +31,7 @@ const highlightedCameraIcon = L.divIcon({
     <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
     <circle cx="12" cy="13" r="3"/>
   </svg>`,
-  className: 'camera-marker-highlighted',
+  className: "camera-marker-highlighted",
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
@@ -62,9 +69,24 @@ export function CCTVs() {
 
   // Placeholder data for demonstration
   const cameras = [
-    { id: '1', name: 'Main Street Camera 1', location: [51.505, -0.09], status: 'active' },
-    { id: '2', name: 'Park Avenue Camera 2', location: [51.51, -0.1], status: 'inactive' },
-    { id: '3', name: 'Station Camera 3', location: [51.515, -0.09], status: 'active' }
+    {
+      id: "1",
+      name: "Main Street Camera 1",
+      location: [51.505, -0.09],
+      status: "active",
+    },
+    {
+      id: "2",
+      name: "Park Avenue Camera 2",
+      location: [51.51, -0.1],
+      status: "inactive",
+    },
+    {
+      id: "3",
+      name: "Station Camera 3",
+      location: [51.515, -0.09],
+      status: "active",
+    },
   ];
 
   return (
@@ -88,18 +110,10 @@ export function CCTVs() {
             />
           ))}
         </MapContainer>
-
-        <Link
-          to="/cctvs/add"
-          className="absolute bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-md shadow-lg hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Add Camera</span>
-        </Link>
       </div>
 
       {/* Camera List */}
-      <div className="w-1/3 bg-white border-l p-4 overflow-y-auto">
+      <div className="w-1/3 bg-white border-l p-4 overflow-y-auto relative">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">CCTV Cameras</h2>
           <span className="text-sm text-gray-600">{cameras.length} total</span>
@@ -118,22 +132,37 @@ export function CCTVs() {
                   <h3 className="font-medium">{camera.name}</h3>
                   <p className="text-sm text-gray-600">ID: {camera.id}</p>
                 </div>
-                <span className={`px-2 py-1 rounded-full text-sm ${
-                  camera.status === 'active'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                }`}>
+                <span
+                  className={`px-2 py-1 rounded-full text-sm ${
+                    camera.status === "active"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800"
+                  }`}
+                >
                   {camera.status}
                 </span>
               </div>
+              {/* Configure button now inside the camera card */}
               <div className="mt-3 flex justify-end">
-                <button className="text-gray-600 hover:text-gray-900 flex items-center space-x-1">
-                  <Settings className="h-4 w-4" />
-                  <span className="text-sm">Configure</span>
-                </button>
+                <Link to={`/cctvs/configure/${camera.id}`}>
+                  <button className="text-gray-600 hover:text-gray-900 flex items-center space-x-1">
+                    <Settings className="h-4 w-4" />
+                    <span className="text-sm">Configure</span>
+                  </button>
+                </Link>
               </div>
             </div>
           ))}
+        </div>
+        {/* Add Camera Link */}
+        <div className="mt-6 flex justify-center">
+          <Link
+            to="/cctvs/add"
+            className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-lg hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Add Camera</span>
+          </Link>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api');
   app.useStaticAssets(join(__dirname, '..', 'photos')); // Serve images
+  app.enableCors();
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
